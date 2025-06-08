@@ -1,37 +1,37 @@
-# AG-UI Travel Assistant
+# Simple Travel Assistant
 
-A full-stack application demonstrating the integration of AutoGen agents with the AG-UI protocol to create an interactive AI travel assistant with human-in-the-loop capabilities.
+A simplified full-stack application demonstrating AutoGen agents with a simple FastAPI backend and React frontend for creating an interactive AI travel assistant.
 
 ![Travel Assistant](https://img.shields.io/badge/AI-Travel%20Assistant-blue)
-![AG-UI](https://img.shields.io/badge/Protocol-AG--UI-green)
+![FastAPI](https://img.shields.io/badge/Backend-FastAPI-green)
 ![AutoGen](https://img.shields.io/badge/Framework-AutoGen-orange)
-![CopilotKit](https://img.shields.io/badge/Frontend-CopilotKit-purple)
+![React](https://img.shields.io/badge/Frontend-React-purple)
 
 ## 📋 Overview
 
-This project showcases a modern AI application architecture that combines:
+This project showcases a simplified AI application architecture that combines:
 
-1. **Backend**: Python-based AutoGen agents that create personalized travel itineraries
-2. **Protocol**: AG-UI for standardized AI agent communication
-3. **Frontend**: Next.js application with CopilotKit integration for a seamless user experience
+1. **Backend**: Python-based AutoGen agents with simple FastAPI server
+2. **Communication**: WebSocket for real-time messaging
+3. **Frontend**: Clean React application for seamless user experience
 
-The system allows users to interact with an AI travel assistant that can create custom travel plans, recommend destinations, and adjust itineraries based on user feedback - all with real-time streaming responses and interactive tool execution.
+The system allows users to interact with an AI travel assistant that can create custom travel plans, recommend destinations, and adjust itineraries based on user feedback - all with real-time messaging.
 
 ## 🌟 Features
 
-### Backend (AG-UI Travel Agent)
+### Backend (Simple Travel Agent)
 - **AutoGen-powered AI**: Leverages AutoGen's multi-agent architecture for sophisticated planning
 - **Human-in-the-Loop**: Supports human execution of tool calls when needed
 - **Member Data Integration**: Connects to member profiles for personalized recommendations
-- **Event-driven Architecture**: Uses Server-Sent Events (SSE) for real-time communication
-- **State Management**: Maintains consistent conversation state across interactions
+- **WebSocket Communication**: Real-time bi-directional communication
+- **Simple Architecture**: No complex protocols, just clean FastAPI
 
-### Frontend (AG-UI Travel Frontend)
-- **Modern UI**: Built with Next.js and Tailwind CSS
-- **CopilotKit Integration**: Seamless integration with AG-UI backend
-- **Real-time Streaming**: Character-by-character response streaming
-- **Tool Execution UI**: Interactive interface for executing agent tool calls
+### Frontend (Simple React App)
+- **Clean UI**: Built with React and vanilla CSS
+- **Real-time Messaging**: WebSocket-based chat interface
 - **Responsive Design**: Works across desktop and mobile devices
+- **Connection Status**: Visual indication of server connection
+- **Message History**: Persistent chat history with timestamps
 
 ## 🔧 Prerequisites
 
@@ -41,8 +41,8 @@ The system allows users to interact with an AI travel assistant that can create 
   - OpenAI API key
 
 - **Frontend**:
-  - Node.js 20+
-  - npm/yarn/pnpm
+  - Node.js 16+
+  - npm
 
 ## 🚀 Getting Started
 
@@ -64,8 +64,8 @@ echo "OPENAI_API_KEY=your_api_key_here" > .env
 # Install dependencies
 poetry install
 
-# Start the backend server
-poetry run python -m ag_ui_ag2.demo
+# Start the simple server
+poetry run python -m ag_ui_ag2.simple_server
 ```
 
 The backend server will start at `http://localhost:8000`.
@@ -73,13 +73,13 @@ The backend server will start at `http://localhost:8000`.
 ### Step 3: Set Up the Frontend
 
 ```bash
-cd ../ag-ui-travel-frontend
+cd ../simple-travel-frontend
 
 # Install dependencies
 npm install
 
 # Start the development server
-npm run dev
+npm start
 ```
 
 The frontend will be available at `http://localhost:3000`.
@@ -92,30 +92,22 @@ AG-UI-AG2/
 │   ├── src/
 │   │   └── ag_ui_ag2/         # Core Python package
 │   │       ├── __init__.py
-│   │       ├── ag_ui_adapter.py   # AG-UI protocol adapter
+│   │       ├── simple_server.py   # Simple FastAPI server
 │   │       ├── database.py        # Member database simulation
-│   │       ├── hitl_workflow.py   # Human-in-the-loop workflow
-│   │       ├── messages.py        # Message handling
-│   │       └── tool_events.py     # Tool execution events
+│   │       ├── messages.py        # Message templates
+│   │       └── hitl_workflow.py   # Original workflow (reference)
 │   ├── poetry.lock
 │   ├── pyproject.toml         # Python dependencies
-│   ├── README.md
-│   └── tests/                 # Backend tests
+│   └── README.md
 │
-└── ag-ui-travel-frontend/     # Frontend Next.js application
+└── simple-travel-frontend/    # Frontend React application
     ├── src/
-    │   ├── app/               # Next.js app router
-    │   │   ├── components/    # React components
-    │   │   │   ├── Chat.tsx   # Chat interface
-    │   │   │   ├── Travel.tsx # Travel agent component
-    │   │   │   ├── Header.tsx
-    │   │   │   └── Footer.tsx
-    │   │   ├── api/           # API routes
-    │   │   │   └── copilotkit/
-    │   │   ├── copilotkit/    # CopilotKit pages
-    │   │   ├── destinations/  # Travel destinations page
-    │   │   └── page.tsx       # Main page
-    │   └── lib/               # Shared utilities
+    │   ├── App.js             # Main React component
+    │   ├── App.css            # Styles
+    │   ├── index.js           # React entry point
+    │   └── index.css          # Global styles
+    ├── public/
+    │   └── index.html         # HTML template
     ├── package.json           # Frontend dependencies
     └── README.md
 ```
@@ -124,46 +116,52 @@ AG-UI-AG2/
 
 ### Travel Planning Workflow
 
-1. **Member Identification**:
+1. **Start Conversation**:
+   - Open the React frontend at http://localhost:3000
+   - You'll see the initial welcome message
+
+2. **Member Identification**:
    - Enter member ID (sample IDs: P12345, P67890, S12345, S67890)
    - System retrieves personalized member information
 
-2. **Destination Selection**:
+3. **Destination Selection**:
    - Specify travel destination and dates
    - AI agent provides recommendations based on preferences
 
-3. **Itinerary Creation**:
+4. **Itinerary Creation**:
    - AI generates a custom travel itinerary
    - Review activities, accommodations, and transportation
 
-4. **Refinement**:
+5. **Refinement**:
    - Request changes to the itinerary
    - AI adjusts plans based on feedback
 
-## 🔌 API Endpoints
+## 🔌 Communication Protocol
 
-### Backend API
+### WebSocket Messages
 
-#### POST /travel-agent
+The frontend and backend communicate via WebSocket with simple JSON messages:
 
-AG-UI compliant endpoint for the travel agent.
-
-**Request Format**:
+**Client to Server**:
 ```json
 {
-  "thread_id": "string",
-  "run_id": "string",
-  "messages": [
-    {
-      "id": "string",
-      "content": "string",
-      "role": "user"
-    }
-  ]
+  "type": "user_message",
+  "content": "I'd like to plan a trip to Paris"
 }
 ```
 
-**Response**: Server-Sent Events (SSE) stream following the AG-UI protocol.
+**Server to Client**:
+```json
+{
+  "type": "message",
+  "data": {
+    "id": "msg_123",
+    "role": "assistant",
+    "content": "I'd be happy to help you plan a trip to Paris!",
+    "timestamp": "2024-01-15T10:30:00Z"
+  }
+}
+```
 
 ## 🛠️ Advanced Configuration
 
@@ -173,37 +171,16 @@ Environment variables can be set in the `.env` file:
 
 ```
 OPENAI_API_KEY=your_api_key_here
-MODEL_NAME=gpt-4o
+MODEL_NAME=gpt-4o-mini
 PORT=8000
 ```
 
 ### Frontend Configuration
 
-The frontend can be configured in `next.config.ts`:
+The WebSocket connection URL can be modified in `App.js`:
 
-```typescript
-// Example configuration
-const nextConfig = {
-  env: {
-    NEXT_PUBLIC_BACKEND_URL: 'http://localhost:8000',
-  },
-};
-```
-
-## 🧪 Testing
-
-### Backend Tests
-
-```bash
-cd ag-ui-travel-agent
-poetry run pytest
-```
-
-### Frontend Tests
-
-```bash
-cd ag-ui-travel-frontend
-npm run test
+```javascript
+const ws = new WebSocket(`ws://localhost:8000/ws/${clientId.current}`);
 ```
 
 ## 📚 Technologies Used
@@ -211,14 +188,13 @@ npm run test
 ### Backend
 - **AutoGen**: Multi-agent framework for AI applications
 - **FastAPI**: High-performance API framework
-- **AG-UI Protocol**: Standardized AI agent communication
+- **WebSocket**: Real-time communication
 - **Poetry**: Python dependency management
 
 ### Frontend
-- **Next.js**: React framework with app router
-- **CopilotKit**: UI components for AI interactions
 - **React**: Frontend library
-- **Tailwind CSS**: Utility-first CSS framework
+- **WebSocket API**: Real-time communication
+- **Vanilla CSS**: Clean, custom styling
 
 ## 🤝 Contributing
 
@@ -240,4 +216,4 @@ For questions or feedback, please open an issue on the repository.
 
 ---
 
-Built with ❤️ using AutoGen, AG-UI, and CopilotKit
+Built with ❤️ using AutoGen, FastAPI, and React
