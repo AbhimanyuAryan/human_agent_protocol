@@ -34,25 +34,45 @@ class ChatMessage(BaseModel):
     content: str
     timestamp: str
 
+class AgentContext:
+    def __init__(self):
+        self.travel_agent = None
+        self.customer = None
+        self.initialized = False
+        self.conversation_history = []  # Track full conversation
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[str, WebSocket] = {}
         self.conversations: Dict[str, list] = {}
+        self.agent_contexts: Dict[str, AgentContext] = {}
         
     async def connect(self, websocket: WebSocket, client_id: str):
         await websocket.accept()
         self.active_connections[client_id] = websocket
         self.conversations[client_id] = []
+        self.agent_contexts[client_id] = AgentContext()
         
     def disconnect(self, client_id: str):
         if client_id in self.active_connections:
             del self.active_connections[client_id]
         if client_id in self.conversations:
             del self.conversations[client_id]
+        if client_id in self.agent_contexts:
+            del self.agent_contexts[client_id]
             
     async def send_message(self, client_id: str, message: dict):
+        """Send a message to a specific client via WebSocket"""
         if client_id in self.active_connections:
-            await self.active_connections[client_id].send_text(json.dumps(message))
+            try:
+                await self.active_connections[client_id].send_text(json.dumps(message))
+                logger.info(f"📤 Sent message to client {client_id}: {message['type']}")
+            except Exception as e:
+                logger.error(f"❌ Failed to send message to client {client_id}: {e}")
+                # Remove the connection if it's broken
+                self.disconnect(client_id)
+        else:
+            logger.warning(f"⚠️ Client {client_id} not found in active connections")
 
 manager = ConnectionManager()
 
@@ -168,52 +188,79 @@ async def run_travel_workflow(client_id: str, user_message: str):
     logger.info(f"🚀 Starting workflow for client {client_id} with message: '{user_message}'")
     ui = SimpleUI(client_id)
     
+    # Get or create agent context for this client
+    context = manager.agent_contexts[client_id]
+    
     # Send initial message if it's the first interaction
     if not manager.conversations[client_id]:
         logger.info(f"💬 Sending initial message to new client {client_id}")
         await ui.send_message("assistant", INITIAL_MESSAGE)
+        manager.conversations[client_id].append({"role": "assistant", "content": INITIAL_MESSAGE})
     
-    # Create agents
-    logger.info(f"🤖 Creating agents for client {client_id}")
-    with llm_config:
-        travel_agent = ConversableAgent(
-            name="travel_agent",
-            system_message=SYSTEM_MESSAGE,
-            human_input_mode="NEVER"
+    # Initialize agents only once per client
+    if not context.initialized:
+        logger.info(f"🤖 Creating agents for client {client_id}")
+        with llm_config:
+            context.travel_agent = ConversableAgent(
+                name="travel_agent",
+                system_message=SYSTEM_MESSAGE,
+                human_input_mode="NEVER"
+            )
+
+        context.customer = ConversableAgent(
+            name="customer",
+            human_input_mode="NEVER",
         )
 
-    customer = ConversableAgent(
-        name="customer",
-        human_input_mode="NEVER",
-    )
+        # Register functions
+        logger.info(f"🔧 Registering functions for client {client_id}")
+        register_function(
+            lookup_member,
+            caller=context.travel_agent,
+            executor=context.customer,
+            description="Look up member details from the database"
+        )
 
-    # Register functions
-    logger.info(f"🔧 Registering functions for client {client_id}")
-    register_function(
-        lookup_member,
-        caller=travel_agent,
-        executor=customer,
-        description="Look up member details from the database"
-    )
+        register_function(
+            create_itinerary,
+            caller=context.travel_agent,
+            executor=context.customer,
+            description="Create a personalized travel itinerary based on member details"
+        )
+        
+        context.initialized = True
 
-    register_function(
-        create_itinerary,
-        caller=travel_agent,
-        executor=customer,
-        description="Create a personalized travel itinerary based on member details"
-    )
+    # Add user message to conversation history
+    manager.conversations[client_id].append({"role": "user", "content": user_message})
+    context.conversation_history.append({"role": "user", "content": user_message})
 
     # Send user message
     logger.info(f"📤 Sending user message to UI: '{user_message}'")
     await ui.send_message("user", user_message)
     
-    # Run conversation
     try:
-        logger.info(f"🗣️ Starting chat between customer and travel_agent")
-        response = customer.initiate_chat(
-            travel_agent,
-            message=user_message,
-            max_turns=1
+        # Build conversation context from history
+        conversation_context = []
+        for msg in context.conversation_history:
+            if msg["role"] == "user":
+                conversation_context.append(f"User: {msg['content']}")
+            elif msg["role"] == "assistant":
+                conversation_context.append(f"Assistant: {msg['content']}")
+        
+        # Create context-aware message
+        if len(conversation_context) > 1:
+            context_message = "Conversation so far:\n" + "\n".join(conversation_context[:-1]) + f"\n\nUser's latest message: {user_message}"
+        else:
+            context_message = user_message
+
+        logger.info(f"🗣️ Starting chat with context: {context_message}")
+        
+        # Use the persistent agents instead of creating new ones
+        response = context.customer.initiate_chat(
+            context.travel_agent,
+            message=context_message,
+            max_turns=3,  # Allow multiple turns for tool execution
+            silent=True
         )
         
         logger.info(f"📝 Chat response received: {type(response)}")
@@ -225,33 +272,83 @@ async def run_travel_workflow(client_id: str, user_message: str):
                 for i, msg in enumerate(response.chat_history):
                     logger.info(f"📜 Message {i}: {msg}")
         
-        # Send agent response
-        if response and hasattr(response, 'summary') and response.summary:
-            logger.info(f"✅ Sending summary to client: {response.summary}")
-            await ui.send_message("assistant", response.summary)
-        elif response and hasattr(response, 'chat_history') and response.chat_history:
-            last_message = response.chat_history[-1]
-            logger.info(f"📤 Processing last message: {last_message}")
+        # Process response and handle tool calls
+        assistant_response = None
+        
+        if response and hasattr(response, 'chat_history') and response.chat_history:
+            # Look for the travel agent's response in the chat history
+            for message in reversed(response.chat_history):
+                if isinstance(message, dict):
+                    # Handle tool calls
+                    if 'tool_calls' in message and message['tool_calls']:
+                        logger.info(f"🔧 Tool call detected: {message['tool_calls'][0]['function']['name']}")
+                        
+                        tool_call = message['tool_calls'][0]
+                        function_name = tool_call['function']['name']
+                        function_args = json.loads(tool_call['function']['arguments'])
+                        
+                        await ui.send_function_call(function_name, function_args)
+                        
+                        # Execute the function call
+                        if function_name == "lookup_member":
+                            result = lookup_member(function_args.get('member_id', ''))
+                            logger.info(f"🔍 lookup_member result: {result}")
+                            
+                            if result.get('found'):
+                                assistant_response = f"Great! I found your profile, {result['name']}. You have {result['membership']} membership with preferences for {', '.join(result['preferences'])}. Now, could you please tell me your desired destination and travel dates?"
+                            else:
+                                assistant_response = "I couldn't find that member ID in our system. Could you please double-check and provide your member ID again?"
+                                
+                        elif function_name == "create_itinerary":
+                            result = create_itinerary(
+                                function_args.get('destination', ''),
+                                function_args.get('days', 0),
+                                function_args.get('membership_type', ''),
+                                function_args.get('preferences', [])
+                            )
+                            logger.info(f"🗓️ create_itinerary result: {result}")
+                            
+                            if 'error' not in result:
+                                itinerary_text = f"Here's your personalized {result['days']}-day itinerary for {result['destination']}:\n\n"
+                                for day_plan in result['itinerary']:
+                                    itinerary_text += f"{day_plan['day']}:\n"
+                                    itinerary_text += f"  Morning: {day_plan['morning']}\n"
+                                    itinerary_text += f"  Afternoon: {day_plan['afternoon']}\n"
+                                    itinerary_text += f"  Evening: {day_plan['evening']}\n\n"
+                                itinerary_text += f"Accommodation: {result['accommodation']}\n"
+                                itinerary_text += f"Transportation: {result['transportation']}\n\n"
+                                itinerary_text += "This is a draft itinerary. Would you like me to make any adjustments?"
+                                assistant_response = itinerary_text
+                            else:
+                                assistant_response = f"Error creating itinerary: {result['error']}"
+                        break
+                    
+                    # Handle regular text messages
+                    elif 'content' in message and message['content'] and message.get('name') == 'travel_agent':
+                        content = message['content']
+                        if not content.startswith("***** Suggested tool call") and not content.startswith("****"):
+                            assistant_response = content
+                            break
+        
+        # Use summary as fallback
+        if not assistant_response and response and hasattr(response, 'summary') and response.summary:
+            assistant_response = response.summary
             
-            if isinstance(last_message, dict) and 'content' in last_message:
-                content = last_message['content']
-                logger.info(f"📝 Message content: {content}")
-                
-                # Skip tool call debug messages
-                if not content.startswith("***** Suggested tool call") and not content.startswith("****"):
-                    logger.info(f"✅ Sending content to client: {content}")
-                    await ui.send_message("assistant", content)
-                else:
-                    logger.info(f"🚫 Skipping tool call debug message")
-            else:
-                logger.warning(f"⚠️ Unexpected message format: {last_message}")
-        else:
-            logger.warning(f"⚠️ No valid response found, sending fallback message")
-            await ui.send_message("assistant", "I'm ready to help you plan your trip!")
-            
+        # Send final fallback message if nothing else worked
+        if not assistant_response:
+            assistant_response = "I'm ready to help you plan your trip!"
+        
+        # Send the assistant's response and add to history
+        await ui.send_message("assistant", assistant_response)
+        manager.conversations[client_id].append({"role": "assistant", "content": assistant_response})
+        context.conversation_history.append({"role": "assistant", "content": assistant_response})
+        
     except Exception as e:
         logger.error(f"💥 Error in workflow: {str(e)}", exc_info=True)
-        await ui.send_message("assistant", f"Sorry, I encountered an error: {str(e)}")
+        error_msg = f"Sorry, I encountered an error: {str(e)}"
+        await ui.send_message("assistant", error_msg)
+        manager.conversations[client_id].append({"role": "assistant", "content": error_msg})
+        context.conversation_history.append({"role": "assistant", "content": error_msg})
 
 app = FastAPI(title="Simple Travel Agent")
 
