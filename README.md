@@ -1,6 +1,6 @@
 # Simple Travel Assistant
 
-A simplified full-stack application demonstrating AutoGen agents with a simple FastAPI backend and React frontend for creating an interactive AI travel assistant.
+A simplified full-stack application demonstrating AutoGen agents with a FastAPI backend and simple React frontend for creating an interactive AI travel assistant.
 
 ![Travel Assistant](https://img.shields.io/badge/AI-Travel%20Assistant-blue)
 ![FastAPI](https://img.shields.io/badge/Backend-FastAPI-green)
@@ -11,27 +11,27 @@ A simplified full-stack application demonstrating AutoGen agents with a simple F
 
 This project showcases a simplified AI application architecture that combines:
 
-1. **Backend**: Python-based AutoGen agents with simple FastAPI server
-2. **Communication**: WebSocket for real-time messaging
-3. **Frontend**: Clean React application for seamless user experience
+1. **Backend**: Python-based AutoGen agents with FastAPI server
+2. **Communication**: WebSocket for real-time messaging  
+3. **Frontend**: Clean React application with pure CSS styling
 
 The system allows users to interact with an AI travel assistant that can create custom travel plans, recommend destinations, and adjust itineraries based on user feedback - all with real-time messaging.
 
 ## 🌟 Features
 
-### Backend (Simple Travel Agent)
+### Backend (Travel Agent)
 - **AutoGen-powered AI**: Leverages AutoGen's multi-agent architecture for sophisticated planning
 - **Human-in-the-Loop**: Supports human execution of tool calls when needed
 - **Member Data Integration**: Connects to member profiles for personalized recommendations
 - **WebSocket Communication**: Real-time bi-directional communication
-- **Simple Architecture**: No complex protocols, just clean FastAPI
+- **FastAPI Architecture**: Modern async Python web framework
 
 ### Frontend (Simple React App)
-- **Clean UI**: Built with React and vanilla CSS
+- **Pure React**: No complex dependencies, just React and CSS
 - **Real-time Messaging**: WebSocket-based chat interface
 - **Responsive Design**: Works across desktop and mobile devices
-- **Connection Status**: Visual indication of server connection
-- **Message History**: Persistent chat history with timestamps
+- **Connection Management**: Auto-reconnection and visual status indicators
+- **Clean UI**: Modern, accessible interface with typing indicators
 
 ## 🔧 Prerequisites
 
@@ -64,8 +64,8 @@ echo "OPENAI_API_KEY=your_api_key_here" > .env
 # Install dependencies
 poetry install
 
-# Start the simple server
-poetry run python -m ag_ui_ag2.simple_server
+# Start the server
+poetry run uvicorn src.ag_ui_ag2.hitl_workflow:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 The backend server will start at `http://localhost:8000`.
@@ -88,27 +88,31 @@ The frontend will be available at `http://localhost:3000`.
 
 ```
 AG-UI-AG2/
-├── ag-ui-travel-agent/        # Backend Python application
+├── ag-ui-travel-agent/           # Backend Python application
 │   ├── src/
-│   │   └── ag_ui_ag2/         # Core Python package
+│   │   └── ag_ui_ag2/            # Core Python package
 │   │       ├── __init__.py
-│   │       ├── simple_server.py   # Simple FastAPI server
-│   │       ├── database.py        # Member database simulation
-│   │       ├── messages.py        # Message templates
-│   │       └── hitl_workflow.py   # Original workflow (reference)
+│   │       ├── hitl_workflow.py  # Main FastAPI application
+│   │       ├── ag_ui_adapter.py  # AG-UI protocol adapter
+│   │       ├── tool_events.py    # Tool call event definitions
+│   │       ├── events.py         # Event type definitions
+│   │       ├── types.py          # Type definitions
+│   │       ├── encoder.py        # Event encoding utilities
+│   │       ├── database.py       # Member database simulation
+│   │       └── messages.py       # Message templates
 │   ├── poetry.lock
-│   ├── pyproject.toml         # Python dependencies
+│   ├── pyproject.toml            # Python dependencies
 │   └── README.md
 │
-└── simple-travel-frontend/    # Frontend React application
+└── simple-travel-frontend/       # Frontend React application
     ├── src/
-    │   ├── App.js             # Main React component
-    │   ├── App.css            # Styles
-    │   ├── index.js           # React entry point
-    │   └── index.css          # Global styles
+    │   ├── App.js                # Main React component
+    │   ├── App.css               # Component styling
+    │   ├── index.js              # React entry point
+    │   └── index.css             # Global styles
     ├── public/
-    │   └── index.html         # HTML template
-    ├── package.json           # Frontend dependencies
+    │   └── index.html            # HTML template
+    ├── package.json              # Frontend dependencies
     └── README.md
 ```
 
@@ -118,7 +122,7 @@ AG-UI-AG2/
 
 1. **Start Conversation**:
    - Open the React frontend at http://localhost:3000
-   - You'll see the initial welcome message
+   - You'll see a welcome message explaining available features
 
 2. **Member Identification**:
    - Enter member ID (sample IDs: P12345, P67890, S12345, S67890)
@@ -172,7 +176,6 @@ Environment variables can be set in the `.env` file:
 ```
 OPENAI_API_KEY=your_api_key_here
 MODEL_NAME=gpt-4o-mini
-PORT=8000
 ```
 
 ### Frontend Configuration
@@ -180,21 +183,23 @@ PORT=8000
 The WebSocket connection URL can be modified in `App.js`:
 
 ```javascript
-const ws = new WebSocket(`ws://localhost:8000/ws/${clientId.current}`);
+const wsUrl = `ws://localhost:8000/ws/${clientId.current}`;
 ```
 
 ## 📚 Technologies Used
 
 ### Backend
 - **AutoGen**: Multi-agent framework for AI applications
-- **FastAPI**: High-performance API framework
+- **FastAPI**: High-performance async API framework
 - **WebSocket**: Real-time communication
 - **Poetry**: Python dependency management
+- **Pydantic**: Data validation and serialization
 
 ### Frontend
-- **React**: Frontend library
+- **React**: Frontend library (Create React App)
 - **WebSocket API**: Real-time communication
-- **Vanilla CSS**: Clean, custom styling
+- **Pure CSS**: Clean, responsive styling
+- **No external dependencies**: Minimal, lightweight approach
 
 ## 🤝 Contributing
 
