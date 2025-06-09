@@ -1,26 +1,28 @@
-from pydantic import BaseModel
-from typing import Dict, Any
+from typing import Any, Dict, Literal
+from src.ag_ui_ag2.events import BaseEvent, EventType
 
-# Define proper tool call event classes based on the AG-UI protocol
-class ToolCallStartEvent(BaseModel):
-    type: str = "TOOL_CALL_START"
+class ToolCallStartEvent(BaseEvent):
+    """Event indicating the start of a tool call with additional properties."""
+    type: Literal[EventType.TOOL_CALL_START] = EventType.TOOL_CALL_START
     message_id: str
     toolCallId: str
     toolCallName: str
     tool: str
-    delta: str = ""
+    delta: str
 
-class ToolCallArgsEvent(BaseModel):
-    type: str = "TOOL_CALL_ARGS"
+class ToolCallArgsEvent(BaseEvent):
+    """Event containing tool call arguments with additional properties."""
+    type: Literal[EventType.TOOL_CALL_ARGS] = EventType.TOOL_CALL_ARGS
     message_id: str
     toolCallId: str
     toolCallName: str
     args: Dict[str, Any]
-    delta: str = ""
+    delta: str
 
-class ToolCallEndEvent(BaseModel):
-    type: str = "TOOL_CALL_END"
+class ToolCallEndEvent(BaseEvent):
+    """Event indicating the end of a tool call with additional properties."""
+    type: Literal[EventType.TOOL_CALL_END] = EventType.TOOL_CALL_END
     message_id: str
     toolCallId: str
     toolCallName: str
-    delta: str = ""
+    delta: str

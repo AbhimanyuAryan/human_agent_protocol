@@ -11,21 +11,6 @@ import autogen
 import autogen.messages
 import autogen.messages.agent_messages
 import autogen.events.agent_events
-from ag_ui.core import (
-    BaseMessage,
-    CustomEvent,
-    EventType,
-    RunAgentInput,
-    RunFinishedEvent,
-    RunStartedEvent,
-    TextMessageContentEvent,
-    TextMessageEndEvent,
-    TextMessageStartEvent,
-    UserMessage,
-    StateSnapshotEvent,
-    StateDeltaEvent,
-)
-from ag_ui.encoder import EventEncoder
 from asyncer import asyncify, syncify
 from fastapi import (
     APIRouter,
@@ -35,6 +20,26 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+
+# Fix imports to use correct project structure
+from src.ag_ui_ag2.types import (
+    BaseMessage,
+    ConfiguredBaseModel,
+    RunAgentInput,
+    UserMessage,
+)
+from src.ag_ui_ag2.events import (
+    CustomEvent,
+    EventType,
+    RunFinishedEvent,
+    RunStartedEvent,
+    TextMessageContentEvent,
+    TextMessageEndEvent,
+    TextMessageStartEvent,
+    StateSnapshotEvent,
+    StateDeltaEvent,
+)
+from src.ag_ui_ag2.encoder import EventEncoder
 
 from fastagency.logging import get_logger
 
@@ -57,12 +62,15 @@ from fastagency.messages import (
     TextMessage,
 )
 
-# Import tool call event classes
-from ag_ui_ag2.tool_events import (
+# Import tool call event classes - fix this import
+from src.ag_ui_ag2.tool_events import (
     ToolCallStartEvent,
     ToolCallArgsEvent,
     ToolCallEndEvent,
 )
+
+import logging
+logger = logging.getLogger(__name__)
 
 #------------------------------------------------------------------------------
 # DATA MODELS AND THREAD MANAGEMENT
@@ -78,15 +86,15 @@ class WorkflowInfo(BaseModel):
 
 class AGUIThreadInfo:
     def __init__(self, run_agent_input: RunAgentInput, workflow_id: str) -> None:
-        """Represent AG-UI thread.
+        """Represent AG-UI thread with comprehensive debug logging."""
+        logger.info(f"🧵 [INIT] Creating AGUIThreadInfo")
+        logger.info(f"🧵 [INIT] thread_id: {run_agent_input.thread_id}")
+        logger.info(f"🧵 [INIT] run_id: {run_agent_input.run_id}")
+        logger.info(f"🧵 [INIT] workflow_id: {workflow_id}")
+        logger.info(f"🧵 [INIT] messages count: {len(run_agent_input.messages)}")
+        logger.info(f"🧵 [INIT] tools count: {len(run_agent_input.tools)}")
+        logger.info(f"🧵 [INIT] context count: {len(run_agent_input.context)}")
         
-        This class stores all information related to a specific Agent-UI interaction thread.
-        It manages message queues, encoding, state tracking, and thread lifecycle.
-        
-        Args:
-            run_agent_input (RunAgentInput): Input parameters from the UI client request
-            workflow_id (str): Unique identifier for the associated workflow
-        """
         # Store the original request input for reference
         self.run_agent_input = run_agent_input
         
@@ -111,6 +119,8 @@ class AGUIThreadInfo:
         # State management for tracking workflow progress and data
         self.state: dict = {}    
         
+        logger.info(f"🧵 [INIT] AGUIThreadInfo created successfully for thread {self.thread_id}")
+
     def has_text_input_widget(self) -> bool:
         """Check if this thread has a text input widget active.
         
@@ -161,20 +171,14 @@ class AGUIAdapter(MessageProcessorMixin, CreateWorkflowUIMixin):
         get_user_id: Optional[Callable[..., Optional[str]]] = None,
         filter: Optional[Callable[[BaseMessage], bool]] = None,
     ) -> None:
-        """Provider for AG-UI.
-
-        This adapter connects FastAgency workflows with AG-UI interfaces, handling
-        message routing, thread management, and real-time communication between
-        agents and the frontend UI.
+        """Provider for AG-UI with comprehensive debug logging."""
+        logger.info(f"🏗️ [ADAPTER_INIT] Initializing AGUIAdapter")
+        logger.info(f"🏗️ [ADAPTER_INIT] Provider: {provider}")
+        logger.info(f"🏗️ [ADAPTER_INIT] Provider type: {type(provider)}")
+        logger.info(f"🏗️ [ADAPTER_INIT] Discovery path: {discovery_path}")
+        logger.info(f"🏗️ [ADAPTER_INIT] AGUI path: {agui_path}")
+        logger.info(f"🏗️ [ADAPTER_INIT] Workflow name: {wf_name}")
         
-        Args:
-            provider (ProviderProtocol): The workflow provider that executes agent workflows
-            discovery_path (str, optional): API path for workflow discovery endpoint. Defaults to "/fastagency/discovery".
-            agui_path (str, optional): API path for AG-UI communication endpoint. Defaults to "/fastagency/agui".
-            wf_name (str, optional): Name of the default workflow to run. If None, uses the first available workflow.
-            get_user_id (Optional[Callable[..., Optional[str]]], optional): Function to extract user ID from requests. Defaults to None.
-            filter (Optional[Callable[[BaseMessage], bool]], optional): Optional filter function for messages. Defaults to None.
-        """
         # Store configuration and dependencies
         self.provider = provider
         self.discovery_path = discovery_path
@@ -195,23 +199,21 @@ class AGUIAdapter(MessageProcessorMixin, CreateWorkflowUIMixin):
         # Store the optional message filter
         self.filter = filter    
         
+        logger.info(f"🏗️ [ADAPTER_INIT] AGUIAdapter initialization complete")
+        
     def visit(self, message: IOMessage) -> Optional[str]:
-        """Process an incoming IO message with optional filtering.
+        """Process an incoming IO message with optional filtering."""
+        logger.info(f"🔄 [VISIT] AGUIAdapter.visit called with message type: {type(message).__name__}")
+        logger.debug(f"🔄 [VISIT] Message details: {message}")
         
-        This is the primary entry point for message processing. It applies the optional
-        filter function before passing messages to the appropriate handler methods.
-        
-        Args:
-            message (IOMessage): The message to process
-            
-        Returns:
-            Optional[str]: Result from message processing, if any
-        """
         if self.filter and not self.filter(message):
             logger.info(f"Message filtered out: {message}")
             return None
         # call the super class visit method
-        return super().visit(message)
+        result = super().visit(message)
+        
+        logger.info(f"🔄 [VISIT] AGUIAdapter.visit completed, result: {result}")
+        return result
     
     def get_thread_info_of_workflow(
         self, workflow_uuid: str
@@ -705,6 +707,10 @@ class AGUIAdapter(MessageProcessorMixin, CreateWorkflowUIMixin):
         Args:
             message (TextMessage): The message to process and display in the UI
         """
+        logger.info(f"💬 [TEXT_MSG] visit_text_message called")
+        logger.info(f"💬 [TEXT_MSG] Message from {message.sender} to {message.recipient}")
+        logger.info(f"💬 [TEXT_MSG] Content length: {len(message.body) if message.body else 0}")
+        
         async def a_visit_text_message(self: AGUIAdapter, message: TextMessage) -> None:
             # Step 1: Extract workflow ID and get thread info
             workflow_uuid = message.workflow_uuid
@@ -808,6 +814,9 @@ class AGUIAdapter(MessageProcessorMixin, CreateWorkflowUIMixin):
         Raises:
             KeyError: If the associated thread cannot be found
         """
+        logger.info(f"📝 [TEXT_INPUT] visit_text_input called")
+        logger.info(f"📝 [TEXT_INPUT] Prompt: {message.prompt}")
+        
         async def a_visit_text_input(self: AGUIAdapter, message: TextInput) -> str:
             # Step 1: Get the thread info for this workflow
             workflow_uuid = message.workflow_uuid
@@ -960,6 +969,7 @@ class AGUIAdapter(MessageProcessorMixin, CreateWorkflowUIMixin):
             )
             out_queue.put_nowait(state_delta)
             
+            logger.info(f"📝 [TEXT_INPUT] Received user input: {response}")
             return response
 
         # Convert async function to synchronous call and return result
