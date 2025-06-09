@@ -11,7 +11,7 @@ import autogen
 import autogen.messages
 import autogen.messages.agent_messages
 import autogen.events.agent_events
-from ag_ui.core import (
+from src.types import (
     BaseMessage,
     CustomEvent,
     EventType,
@@ -25,7 +25,7 @@ from ag_ui.core import (
     StateSnapshotEvent,
     StateDeltaEvent,
 )
-from ag_ui.encoder import EventEncoder
+from src.encoder import EventEncoder
 from asyncer import asyncify, syncify
 from fastapi import (
     APIRouter,
