@@ -1,4 +1,7 @@
-from src.events import BaseEvent
+import logging
+from src.ag_ui_ag2.events import BaseEvent
+
+logger = logging.getLogger(__name__)
 
 AGUI_MEDIA_TYPE = "application/vnd.ag-ui.event+proto"
 
