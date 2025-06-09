@@ -2,7 +2,7 @@ from enum import Enum
 from typing import Any, List, Literal, Optional, Union, Annotated
 from pydantic import Field
 
-from src.ag_ui_ag2.types import ConfiguredBaseModel, State, Message
+from src.agent_back.types import ConfiguredBaseModel, State, Message
 
 
 class EventType(str, Enum):

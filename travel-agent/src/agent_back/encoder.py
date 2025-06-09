@@ -1,5 +1,5 @@
 import logging
-from src.ag_ui_ag2.events import BaseEvent
+from src.agent_back.events import BaseEvent
 
 logger = logging.getLogger(__name__)
 

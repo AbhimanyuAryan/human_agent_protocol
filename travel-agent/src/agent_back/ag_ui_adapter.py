@@ -22,13 +22,13 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 # Fix imports to use correct project structure
-from src.ag_ui_ag2.types import (
+from src.agent_back.types import (
     BaseMessage,
     ConfiguredBaseModel,
     RunAgentInput,
     UserMessage,
 )
-from src.ag_ui_ag2.events import (
+from src.agent_back.events import (
     CustomEvent,
     EventType,
     RunFinishedEvent,
@@ -39,7 +39,7 @@ from src.ag_ui_ag2.events import (
     StateSnapshotEvent,
     StateDeltaEvent,
 )
-from src.ag_ui_ag2.encoder import EventEncoder
+from src.agent_back.encoder import EventEncoder
 
 from fastagency.logging import get_logger
 
@@ -63,7 +63,7 @@ from fastagency.messages import (
 )
 
 # Import tool call event classes - fix this import
-from src.ag_ui_ag2.tool_events import (
+from src.agent_back.tool_events import (
     ToolCallStartEvent,
     ToolCallArgsEvent,
     ToolCallEndEvent,

@@ -22,12 +22,12 @@ from fastapi import FastAPI
 
 # Fastagency for UI interactions and workflow management
 from fastagency import UI
-from src.ag_ui_ag2.ag_ui_adapter import AGUIAdapter
+from src.agent_back.ag_ui_adapter import AGUIAdapter
 from fastagency.runtimes.ag2 import Workflow
 
 # Local project imports for database access and message templates
-from src.ag_ui_ag2.database import MEMBER_DATABASE
-from src.ag_ui_ag2.messages import SYSTEM_MESSAGE, INITIAL_MESSAGE
+from src.agent_back.database import MEMBER_DATABASE
+from src.agent_back.messages import SYSTEM_MESSAGE, INITIAL_MESSAGE
 logger.info(f"🚀 [STARTUP] All imports completed successfully")
 
 # Thread-local storage for tracking thread IDs
