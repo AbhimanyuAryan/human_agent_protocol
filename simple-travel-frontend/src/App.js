@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import './App.css';
 
 const App = () => {
@@ -28,64 +28,8 @@ const App = () => {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  // WebSocket connection management
-  const connectWebSocket = () => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      return;
-    }
-
-    try {
-      const wsUrl = `ws://localhost:8000/ws/${clientId.current}`;
-      wsRef.current = new WebSocket(wsUrl);
-
-      wsRef.current.onopen = () => {
-        console.log('✅ WebSocket connected');
-        setIsConnected(true);
-        setError(null);
-        reconnectAttempts.current = 0;
-      };
-
-      wsRef.current.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('📨 Received:', data);
-          
-          handleIncomingMessage(data);
-        } catch (err) {
-          console.error('❌ Error parsing message:', err);
-        }
-      };
-
-      wsRef.current.onclose = (event) => {
-        console.log('🔌 WebSocket closed:', event.code, event.reason);
-        setIsConnected(false);
-        setIsTyping(false);
-        
-        // Attempt to reconnect unless it was a clean close
-        if (event.code !== 1000 && reconnectAttempts.current < 5) {
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
-          console.log(`🔄 Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current + 1})`);
-          
-          setTimeout(() => {
-            reconnectAttempts.current++;
-            connectWebSocket();
-          }, delay);
-        }
-      };
-
-      wsRef.current.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
-        setError('Connection error. Please check if the server is running.');
-      };
-
-    } catch (err) {
-      console.error('❌ Error creating WebSocket:', err);
-      setError('Failed to connect to server. Please try again.');
-    }
-  };
-
   // Handle different types of incoming messages
-  const handleIncomingMessage = (data) => {
+  const handleIncomingMessage = useCallback((data) => {
     switch (data.type) {
       case 'message':
         // Standard message from assistant
@@ -142,7 +86,63 @@ const App = () => {
       default:
         console.log('🤷 Unknown message type:', data.type);
     }
-  };
+  }, []);
+
+  // WebSocket connection management - wrapped in useCallback to stabilize the reference
+  const connectWebSocket = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      return;
+    }
+
+    try {
+      const wsUrl = `ws://localhost:8000/ws/${clientId.current}`;
+      wsRef.current = new WebSocket(wsUrl);
+
+      wsRef.current.onopen = () => {
+        console.log('✅ WebSocket connected');
+        setIsConnected(true);
+        setError(null);
+        reconnectAttempts.current = 0;
+      };
+
+      wsRef.current.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('📨 Received:', data);
+          
+          handleIncomingMessage(data);
+        } catch (err) {
+          console.error('❌ Error parsing message:', err);
+        }
+      };
+
+      wsRef.current.onclose = (event) => {
+        console.log('🔌 WebSocket closed:', event.code, event.reason);
+        setIsConnected(false);
+        setIsTyping(false);
+        
+        // Attempt to reconnect unless it was a clean close
+        if (event.code !== 1000 && reconnectAttempts.current < 5) {
+          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
+          console.log(`🔄 Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current + 1})`);
+          
+          setTimeout(() => {
+            reconnectAttempts.current++;
+            connectWebSocket();
+          }, delay);
+        }
+      };
+
+      wsRef.current.onerror = (error) => {
+        console.error('❌ WebSocket error:', error);
+        setError('Connection error. Please check if the server is running.');
+      };
+
+    } catch (err) {
+      console.error('❌ Error creating WebSocket:', err);
+      setError('Failed to connect to server. Please try again.');
+    }
+  }, [handleIncomingMessage]);
 
   // Add message to the conversation
   const addMessage = (message) => {
@@ -220,7 +220,7 @@ const App = () => {
         wsRef.current.close(1000, 'Component unmounting');
       }
     };
-  }, []);
+  }, [connectWebSocket]);
 
   return (
     <div className="app">
