@@ -5,9 +5,9 @@ A clean, simple React frontend for the Travel Assistant application built with p
 ## Features
 
 - **Pure React**: No complex dependencies, just React and CSS
-- **WebSocket Communication**: Real-time messaging with the backend
+- **AG-UI Protocol**: HTTP POST + Server-Sent Events communication with the backend
 - **Responsive Design**: Works on desktop and mobile
-- **Connection Management**: Auto-reconnection and status indicators
+- **Real-time Streaming**: Character-by-character message streaming
 - **Clean UI**: Modern, accessible interface
 
 ## Getting Started
@@ -51,26 +51,31 @@ public/
 
 ## Communication Protocol
 
-The frontend communicates with the backend via WebSocket using simple JSON messages:
+The frontend communicates with the backend via the AG-UI protocol using HTTP POST + Server-Sent Events:
 
-**Sending to Backend:**
+**Sending to Backend (HTTP POST to /fastagency/agui):**
 ```json
 {
-  "type": "user_message",
-  "content": "Hello, I need help planning a trip"
+  "thread_id": "thread_123",
+  "run_id": "run_456", 
+  "messages": [
+    {
+      "type": "user",
+      "content": "Hello, I need help planning a trip"
+    }
+  ],
+  "tools": [],
+  "context": []
 }
 ```
 
-**Receiving from Backend:**
+**Receiving from Backend (Server-Sent Events):**
 ```json
 {
-  "type": "message",
-  "data": {
-    "id": "msg_123",
-    "role": "assistant", 
-    "content": "I'd be happy to help you plan a trip!",
-    "timestamp": "2024-01-15T10:30:00Z"
-  }
+  "id": "msg_123",
+  "role": "assistant", 
+  "content": "I'd be happy to help you plan a trip!",
+  "timestamp": "2024-01-15T10:30:00Z"
 }
 ```
 

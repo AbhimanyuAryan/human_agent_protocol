@@ -9,14 +9,14 @@ const App = () => {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   
-  const wsRef = useRef(null);
+  const abortControllerRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const clientId = useRef(null);
-  const reconnectAttempts = useRef(0);
+  const threadId = useRef(null);
+  const runId = useRef(null);
 
-  // Generate unique client ID
+  // Generate unique thread and run IDs
   useEffect(() => {
-    clientId.current = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    threadId.current = `thread_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }, []);
 
   // Auto-scroll to bottom when new messages arrive
@@ -28,121 +28,116 @@ const App = () => {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  // Handle different types of incoming messages
-  const handleIncomingMessage = useCallback((data) => {
-    switch (data.type) {
-      case 'message':
-        // Standard message from assistant
-        if (data.data && data.data.content) {
-          setIsTyping(false);
-          addMessage({
-            id: data.data.id || Date.now().toString(),
-            role: data.data.role || 'assistant',
-            content: data.data.content,
-            timestamp: data.data.timestamp || new Date().toISOString()
-          });
-        }
-        break;
-
-      case 'function_call':
-        // Function call notification
-        setIsTyping(false);
-        addMessage({
-          id: `func_${Date.now()}`,
-          role: 'function_call',
-          content: `🔧 Calling function: ${data.data.function}(${JSON.stringify(data.data.args, null, 2)})`,
-          timestamp: data.data.timestamp || new Date().toISOString()
+  // Handle different types of incoming SSE events
+  const handleIncomingEvent = useCallback((eventData) => {
+    console.log('📨 Received event:', eventData);
+    
+    // Handle based on the event structure from the logs
+    if (eventData.type === 'tool_call' && eventData.content) {
+      // Tool call event from ToolCallEvent
+      if (eventData.content.tool_calls) {
+        eventData.content.tool_calls.forEach(toolCall => {
+          if (toolCall.function) {
+            addMessage({
+              id: `tool_${toolCall.id}`,
+              role: 'function_call',
+              content: `🔧 Calling function: ${toolCall.function.name}\nArguments: ${toolCall.function.arguments}`,
+              timestamp: new Date().toISOString()
+            });
+          }
         });
-        break;
-
-      case 'input_request':
-        // Agent is requesting input
-        setIsTyping(false);
-        if (data.data && data.data.prompt) {
-          addMessage({
-            id: `input_${Date.now()}`,
-            role: 'assistant',
-            content: data.data.prompt,
-            timestamp: data.data.timestamp || new Date().toISOString()
-          });
-        }
-        break;
-
-      case 'status':
-        // Status update (could be used for typing indicators, etc.)
-        if (data.data && data.data.status === 'typing') {
-          setIsTyping(true);
-        } else {
-          setIsTyping(false);
-        }
-        break;
-
-      case 'error':
-        // Error from server
-        setIsTyping(false);
-        setError(data.message || 'An error occurred');
-        break;
-
-      default:
-        console.log('🤷 Unknown message type:', data.type);
-    }
-  }, []);
-
-  // WebSocket connection management - wrapped in useCallback to stabilize the reference
-  const connectWebSocket = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      }
       return;
     }
 
-    try {
-      const wsUrl = `ws://localhost:8000/ws/${clientId.current}`;
-      wsRef.current = new WebSocket(wsUrl);
-
-      wsRef.current.onopen = () => {
-        console.log('✅ WebSocket connected');
-        setIsConnected(true);
-        setError(null);
-        reconnectAttempts.current = 0;
-      };
-
-      wsRef.current.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('📨 Received:', data);
-          
-          handleIncomingMessage(data);
-        } catch (err) {
-          console.error('❌ Error parsing message:', err);
-        }
-      };
-
-      wsRef.current.onclose = (event) => {
-        console.log('🔌 WebSocket closed:', event.code, event.reason);
-        setIsConnected(false);
-        setIsTyping(false);
-        
-        // Attempt to reconnect unless it was a clean close
-        if (event.code !== 1000 && reconnectAttempts.current < 5) {
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000);
-          console.log(`🔄 Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current + 1})`);
-          
-          setTimeout(() => {
-            reconnectAttempts.current++;
-            connectWebSocket();
-          }, delay);
-        }
-      };
-
-      wsRef.current.onerror = (error) => {
-        console.error('❌ WebSocket error:', error);
-        setError('Connection error. Please check if the server is running.');
-      };
-
-    } catch (err) {
-      console.error('❌ Error creating WebSocket:', err);
-      setError('Failed to connect to server. Please try again.');
+    if (eventData.type === 'input_request' && eventData.content) {
+      // Input request event from InputRequestEvent  
+      addMessage({
+        id: `input_${Date.now()}`,
+        role: 'assistant',
+        content: eventData.content.prompt,
+        timestamp: new Date().toISOString()
+      });
+      return;
     }
-  }, [handleIncomingMessage]);
+
+    if (eventData.type === 'text' && eventData.content) {
+      // Text event from TextEvent
+      addMessage({
+        id: `text_${Date.now()}`,
+        role: eventData.content.sender === 'travel_agent' ? 'assistant' : 'user',
+        content: eventData.content.content,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    // Handle workflow started
+    if (eventData.type === 'workflow_started') {
+      console.log('🚀 Workflow started:', eventData);
+      return;
+    }
+
+    // Handle using auto reply events  
+    if (eventData.type === 'using_auto_reply') {
+      console.log('🤖 Using auto reply:', eventData);
+      return;
+    }
+
+    // Original event handlers for other types
+    switch (eventData.type) {
+      case 'TEXT_MESSAGE_START':
+        setIsTyping(true);
+        break;
+        
+      case 'TEXT_MESSAGE_CONTENT':
+        setIsTyping(false);
+        if (eventData.delta) {
+          setMessages(prev => {
+            const existingIndex = prev.findIndex(msg => msg.id === eventData.message_id);
+            if (existingIndex >= 0) {
+              const updated = [...prev];
+              updated[existingIndex] = {
+                ...updated[existingIndex],
+                content: (updated[existingIndex].content || '') + eventData.delta
+              };
+              return updated;
+            } else {
+              return [...prev, {
+                id: eventData.message_id,
+                role: 'assistant',
+                content: eventData.delta,
+                timestamp: new Date().toISOString()
+              }];
+            }
+          });
+        }
+        break;
+        
+      case 'TEXT_MESSAGE_END':
+        setIsTyping(false);
+        break;
+        
+      case 'RUN_STARTED':
+        console.log('▶️ Run started');
+        setIsLoading(true);
+        break;
+        
+      case 'RUN_FINISHED':
+        console.log('⏹️ Run finished');
+        setIsLoading(false);
+        setIsTyping(false);
+        break;
+        
+      case 'STATE_SNAPSHOT':
+      case 'STATE_DELTA':
+        console.log('📊 State update:', eventData);
+        break;
+        
+      default:
+        console.log('🤷 Unknown event type:', eventData.type, eventData);
+    }
+  }, []);
 
   // Add message to the conversation
   const addMessage = (message) => {
@@ -152,52 +147,194 @@ const App = () => {
     }]);
   };
 
-  // Send message to server
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || !isConnected || isLoading) {
-      return;
-    }
+  // Send message using AG-UI protocol - corrected version
+  const sendMessage = useCallback(async (messageContent) => {
+    if (!messageContent.trim()) return;
 
-    const userMessage = {
-      id: `user_${Date.now()}`,
-      role: 'user',
-      content: inputMessage.trim(),
-      timestamp: new Date().toISOString()
-    };
+    // Generate new run ID for each message
+    runId.current = `run_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     // Add user message to UI immediately
+    const userMessage = {
+      id: `user_${Date.now()}`,
+      role: 'user', 
+      content: messageContent.trim(),
+      timestamp: new Date().toISOString()
+    };
     addMessage(userMessage);
-    
-    // Clear input and show loading
-    const messageToSend = inputMessage.trim();
-    setInputMessage('');
+
     setIsLoading(true);
-    setIsTyping(true);
+    setError(null);
+
+    // Abort any previous request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
 
     try {
-      // Send via WebSocket
+      // Prepare AG-UI payload - matching the exact format expected by the backend
       const payload = {
-        type: 'user_message',
-        content: messageToSend
+        thread_id: threadId.current,
+        run_id: runId.current,
+        messages: [
+          {
+            role: 'user',
+            id: userMessage.id,
+            content: messageContent.trim()
+          }
+        ],
+        tools: [],
+        context: [],
+        state: {
+          // Add required state field
+          phase: "initialized",
+          timestamp: new Date().toISOString()
+        },
+        forwardedProps: {
+          // Add required forwardedProps field
+          agent: "travel_agent"
+        }
       };
 
-      wsRef.current.send(JSON.stringify(payload));
-      console.log('📤 Sent:', payload);
+      console.log('📤 Sending AG-UI request:', payload);
+
+      // Send POST request with proper headers for CORS
+      const response = await fetch('/fastagency/agui', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+        },
+        body: JSON.stringify(payload),
+        signal: abortControllerRef.current.signal
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${response.statusText}\n${errorText}`);
+      }
+
+      console.log('✅ Connected to AG-UI stream');
+      setIsConnected(true);
+
+      // Read the SSE stream
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      const readStream = async () => {
+        try {
+          let buffer = '';
+          
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              console.log('📡 Stream ended');
+              break;
+            }
+
+            const chunk = decoder.decode(value, { stream: true });
+            buffer += chunk;
+            
+            // Process complete lines
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+            for (const line of lines) {
+              const trimmedLine = line.trim();
+              
+              if (trimmedLine.startsWith('data: ')) {
+                const dataContent = trimmedLine.slice(6);
+                
+                // Skip ping/heartbeat messages
+                if (dataContent === '' || dataContent === '[DONE]') {
+                  continue;
+                }
+                
+                try {
+                  const eventData = JSON.parse(dataContent);
+                  handleIncomingEvent(eventData);
+                } catch (parseError) {
+                  console.error('❌ Error parsing SSE data:', parseError);
+                  console.error('Raw data:', dataContent);
+                }
+              } else if (trimmedLine.startsWith('event:')) {
+                // SSE event type line
+                console.log('📋 SSE event:', trimmedLine);
+              } else if (trimmedLine.startsWith('id:')) {
+                // SSE id line
+                console.log('📋 SSE id:', trimmedLine);
+              } else if (trimmedLine.startsWith('retry:')) {
+                // SSE retry line
+                console.log('📋 SSE retry:', trimmedLine);
+              } else if (trimmedLine === '') {
+                // Empty line - separator between events
+                continue;
+              } else {
+                // Unknown line format
+                console.log('📋 Unknown SSE line:', trimmedLine);
+              }
+            }
+          }
+        } catch (streamError) {
+          if (streamError.name === 'AbortError') {
+            console.log('🛑 Stream aborted');
+          } else {
+            console.error('❌ Stream reading error:', streamError);
+            setError('Stream connection lost. Please try again.');
+          }
+        } finally {
+          setIsConnected(false);
+          setIsLoading(false);
+          setIsTyping(false);
+          console.log('🔌 Stream connection closed');
+        }
+      };
+
+      await readStream();
 
     } catch (err) {
-      console.error('❌ Error sending message:', err);
-      setError('Failed to send message. Please try again.');
-      setIsTyping(false);
-    } finally {
+      if (err.name === 'AbortError') {
+        console.log('🛑 Request aborted');
+      } else {
+        console.error('❌ Error sending message:', err);
+        setError(`Failed to send message: ${err.message}`);
+      }
       setIsLoading(false);
+      setIsTyping(false);
+      setIsConnected(false);
     }
-  };
+  }, [handleIncomingEvent]);
 
   // Handle form submission
   const handleSubmit = (e) => {
     e.preventDefault();
-    sendMessage();
+    if (!inputMessage.trim() || isLoading) return;
+    
+    const messageToSend = inputMessage.trim();
+    setInputMessage('');
+    sendMessage(messageToSend);
   };
+
+  // Start initial conversation
+  useEffect(() => {
+    // Send initial message to start the conversation
+    const timer = setTimeout(() => {
+      sendMessage('Hello! I would like to plan a trip.');
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [sendMessage]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   // Format timestamp for display
   const formatTime = (timestamp) => {
@@ -211,17 +348,6 @@ const App = () => {
     }
   };
 
-  // Connect on component mount
-  useEffect(() => {
-    connectWebSocket();
-    
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close(1000, 'Component unmounting');
-      }
-    };
-  }, [connectWebSocket]);
-
   return (
     <div className="app">
       {/* Header */}
@@ -229,15 +355,7 @@ const App = () => {
         <h1>🌍 Simple Travel Assistant</h1>
         <div className="status">
           <div className={`status-indicator ${isConnected ? '' : 'disconnected'}`}></div>
-          {isConnected ? 'Connected' : 'Disconnected'}
-          {!isConnected && (
-            <button 
-              className="reconnect-button" 
-              onClick={connectWebSocket}
-            >
-              Reconnect
-            </button>
-          )}
+          {isConnected ? 'Connected' : 'Ready'}
         </div>
       </div>
 
@@ -296,13 +414,13 @@ const App = () => {
               type="text"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              placeholder={isConnected ? "Type your message..." : "Connecting..."}
-              disabled={!isConnected || isLoading}
+              placeholder="Type your message..."
+              disabled={isLoading}
               className="message-input"
             />
             <button 
               type="submit" 
-              disabled={!isConnected || !inputMessage.trim() || isLoading}
+              disabled={!inputMessage.trim() || isLoading}
               className="send-button"
             >
               {isLoading ? '...' : 'Send'}
