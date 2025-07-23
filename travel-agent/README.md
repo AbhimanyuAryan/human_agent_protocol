@@ -37,7 +37,7 @@ The integration showcases a travel agent built with AutoGen that communicates wi
 Start the FastAPI server:
 
 ```bash
-python -m ag_ui_ag2.demo
+uvicorn src.agent_back.hitl_workflow:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 This will start the server at `http://localhost:8000`.
