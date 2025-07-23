@@ -16,6 +16,8 @@ load_dotenv()
 logger.info(f"🚀 [STARTUP] Starting imports")
 # Import AutoGen components for agent creation and interaction
 from autogen import ConversableAgent, LLMConfig, register_function
+# Add import for GroupChat and GroupChatManager
+from autogen import GroupChat, GroupChatManager
 
 # FastAPI for creating the web server
 from fastapi import FastAPI
@@ -153,7 +155,16 @@ def hitl_workflow(ui: UI, params: dict[str, Any]) -> str:
         )
         logger.info(f"🤖 [WORKFLOW] Customer agent created")
 
+        # Create a support agent (optional)
+        destination_expert = ConversableAgent(
+            name="destination_expert",
+            system_message="You are an expert on travel destinations. Provide detailed information about attractions, local customs, and travel tips when asked.",
+            llm_config=llm_config
+        )
+        logger.info(f"🤖 [WORKFLOW] Destination expert agent created")
+
         logger.info(f"🔧 [WORKFLOW] Registering functions")
+        # Register functions with the appropriate agents
         register_function(
             lookup_member,
             caller=travel_agent,
@@ -170,14 +181,28 @@ def hitl_workflow(ui: UI, params: dict[str, Any]) -> str:
         )
         logger.info(f"🔧 [WORKFLOW] create_itinerary function registered")
 
-        logger.info(f"🗣️ [WORKFLOW] Starting conversation")
-        response = customer.run(
-            travel_agent,
+        # Set up the group chat
+        logger.info(f"🤖 [WORKFLOW] Creating group chat")
+        groupchat = GroupChat(
+            agents=[travel_agent, customer, destination_expert],
+            messages=[]
+            # Note: Removed max_rounds parameter that caused the error
+        )
+        
+        # Create the group chat manager
+        manager = GroupChatManager(
+            groupchat=groupchat,
+            llm_config=llm_config
+        )
+        logger.info(f"🤖 [WORKFLOW] Group chat manager created")
+
+        logger.info(f"🗣️ [WORKFLOW] Starting group chat")
+        response = manager.run(
             message=initial_message,
             summary_method="reflection_with_llm"
         )
         
-        logger.info(f"📝 [WORKFLOW] Conversation completed")
+        logger.info(f"📝 [WORKFLOW] Group chat completed")
         result = ui.process(response)
         logger.info(f"✅ [WORKFLOW] Workflow completed successfully")
         
